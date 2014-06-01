@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# this script creates a new ec2 instance, installs software and runs chef solo for a SPARQL server
+# change configuration below as appropriate
+
+export AWS_ACCESS_KEY=AKIAJBOLKO6ZGM6NXJCA
+export AWS_SECRET_KEY=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
+export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY
+export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_KEY
+export EC2_PRIVATE_KEY=/home/william/dev/amazon/creds/pk-GGA5EUT5VYHKKO4M5ZLSFGLCPXWQDK3K.pem
+export EC2_CERT=/home/william/dev/amazon/creds/cert-GGA5EUT5VYHKKO4M5ZLSFGLCPXWQDK3K.pem
+export EC2_KEYPAIR_PATH=/home/william/dev/amazon/creds/jenkins.pem
+export EC2_KEYPAIR_NAME=jenkins
+export EC2_AMI=ami-a73264ce
+export EC2_INSTANCE_TYPE=t1.micro
+export EC2_SECURITY_GROUP=sg-65a44d00
+
+export GIT_PRIVATE_KEY=/home/william/dev/amazon/creds/id_rsa
+export GIT_PUBLIC_KEY=/home/william/dev/amazon/creds/id_rsa.pub
+export GIT_CHEF_REPO=git@github.com:williamgreenly/chef-recipes.git
+
+server="${1}"
+
+#apt-get -y install curl
+#apt-get -y install ec2-ami-tools
+#apt-get -y install ec2-api-tools
+
+EC2_INSTANCE_ID=`ec2-run-instances $EC2_AMI --group $EC2_SECURITY_GROUP --instance-type $EC2_INSTANCE_TYPE --key $EC2_KEYPAIR_NAME | grep -e ^INSTANCE | cut -f 2`
+
+echo $EC2_PRIVATE_KEY
+echo "EC2 instance pending: $EC2_INSTANCE_ID"
+
+until [ $( ec2-describe-instances $EC2_INSTANCE_ID | grep -e ^INSTANCE | cut -f 6 ) = 'running' ] ; do
+	echo "waiting for instance to launch"    
+	sleep 5
+done
+echo "EC2 instance running: $EC2_INSTANCE_ID"
+
+EC2_PUBLIC_DNS=`ec2-describe-instances $EC2_INSTANCE_ID | grep -e ^INSTANCE | cut -f 4`
+echo "EC2 instance public DNS: $EC2_PUBLIC_DNS"
+
+ssh-keyscan -H $EC2_PUBLIC_DNS >> ~/.ssh/known_hosts
+echo "appended to known hosts"
+
+until  [ $( nmap -p22 $EC2_PUBLIC_DNS | grep -e open -o ) = 'open' ] ; do
+	echo "waiting to make ssh connection"
+	sleep 5
+done
+
+cli53 rrcreate lex-apps.co.uk $server CNAME $EC2_PUBLIC_DNS --ttl 3600
+echo "added alias ${server}.lex-apps.co.uk to DNS"
+
+gitpath="/home/william/dev/projects/chef-recipes/*"
+ssh -o StrictHostKeyChecking=no -i $EC2_KEYPAIR_PATH ubuntu@${EC2_PUBLIC_DNS} "sudo apt-get update; sudo apt-get -y install make; sudo apt-get -y install gcc; sudo apt-get -y install git; sudo apt-get -y install ruby1.9.3"
+ssh -o StrictHostKeyChecking=no -i $EC2_KEYPAIR_PATH ubuntu@${EC2_PUBLIC_DNS} "sudo gem install --no-rdoc --no-ri chef && sudo gem install librarian-chef"
+ssh -o StrictHostKeyChecking=no -i $EC2_KEYPAIR_PATH ubuntu@${EC2_PUBLIC_DNS} "sudo mkdir /home/ubuntu/chef-solo"
+echo "priming server"
+##librarian-chef install
+scp -r -o StrictHostKeyChecking=no -i $EC2_KEYPAIR_PATH ${gitpath} ubuntu@${EC2_PUBLIC_DNS}:~/
+ssh -o StrictHostKeyChecking=no -i $EC2_KEYPAIR_PATH ubuntu@${EC2_PUBLIC_DNS} "sudo chef-solo -c /home/ubuntu/solo.rb -j /home/ubuntu/web.json"
+echo "chef solo completed"
