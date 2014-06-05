@@ -3,20 +3,20 @@
 # this script creates a new ec2 instance, installs software and runs chef solo for a SPARQL server
 # change configuration below as appropriate
 
-export AWS_ACCESS_KEY=AKIAJBOLKO6ZGM6NXJCA
-export AWS_SECRET_KEY=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
+export AWS_ACCESS_KEY=key
+export AWS_SECRET_KEY=key
 export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY
 export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_KEY
-export EC2_PRIVATE_KEY=/home/william/dev/amazon/creds/pk-GGA5EUT5VYHKKO4M5ZLSFGLCPXWQDK3K.pem
-export EC2_CERT=/home/william/dev/amazon/creds/cert-GGA5EUT5VYHKKO4M5ZLSFGLCPXWQDK3K.pem
-export EC2_KEYPAIR_PATH=/home/william/dev/amazon/creds/jenkins.pem
+export EC2_PRIVATE_KEY=path_to_private_key
+export EC2_CERT=path_to_cert
+export EC2_KEYPAIR_PATH=path_to_keypair
 export EC2_KEYPAIR_NAME=jenkins
 export EC2_AMI=ami-a73264ce
 export EC2_INSTANCE_TYPE=t1.micro
 export EC2_SECURITY_GROUP=sg-65a44d00
 
-export GIT_PRIVATE_KEY=/home/william/dev/amazon/creds/id_rsa
-export GIT_PUBLIC_KEY=/home/william/dev/amazon/creds/id_rsa.pub
+export GIT_PRIVATE_KEY=path
+export GIT_PUBLIC_KEY=path
 export GIT_CHEF_REPO=git@github.com:williamgreenly/chef-recipes.git
 
 server="${1}"
