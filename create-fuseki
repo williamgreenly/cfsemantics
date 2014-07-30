@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# this script creates a new ec2 instance, installs software and runs chef solo for a SPARQL server
+# change configuration below as appropriate
+
+export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY
+export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_KEY
+export EC2_PRIVATE_KEY=/etc/ec2/amitools/cert-N6C3K3NDGE2T2GWTFZPLYYTTOHSDAGNH.pem
+export EC2_CERT=/etc/ec2/amitools/cert-N6C3K3NDGE2T2GWTFZPLYYTTOHSDAGNH.pem
+export EC2_KEYPAIR_PATH=/etc/ec2/amitools/metapacksessions.pem
+export EC2_KEYPAIR_NAME=metapacksessions
+export EC2_AMI=ami-f701d680
+export EC2_INSTANCE_TYPE=t1.micro
+export EC2_SECURITY_GROUP=sg-475f8822
+
+export GIT_PRIVATE_KEY=path
+export GIT_PUBLIC_KEY=path
+export GIT_CHEF_REPO=git@github.com:williamgreenly/chef-recipes.git
+
+server="${1}"
+
+#apt-get -y install curl
+#apt-get -y install ec2-ami-tools
+#apt-get -y install ec2-api-tools
+
+EC2_INSTANCE_ID=`ec2-run-instances $EC2_AMI --group $EC2_SECURITY_GROUP --instance-type $EC2_INSTANCE_TYPE --key $EC2_KEYPAIR_NAME | grep -e ^INSTANCE | cut -f 2`
+
+echo $EC2_PRIVATE_KEY
+echo "EC2 instance pending: $EC2_INSTANCE_ID"
+
+until [ $( ec2-describe-instances $EC2_INSTANCE_ID | grep -e ^INSTANCE | cut -f 6 ) = 'running' ] ; do
+	echo "waiting for instance to launch"    
+	sleep 5
+done
+echo "EC2 instance running: $EC2_INSTANCE_ID"
+
+EC2_PUBLIC_DNS=`ec2-describe-instances $EC2_INSTANCE_ID | grep -e ^INSTANCE | cut -f 4`
+echo "EC2 instance public DNS: $EC2_PUBLIC_DNS"
+
+ssh-keyscan -H $EC2_PUBLIC_DNS >> ~/.ssh/known_hosts
+echo "appended to known hosts"
+
+until  [ $( nmap -p22 $EC2_PUBLIC_DNS | grep -e open -o ) = 'open' ] ; do
+	echo "waiting to make ssh connection"
+	sleep 5
+done
+
+cli53 rrcreate metadev.io $server CNAME $EC2_PUBLIC_DNS --ttl 3600
+echo "added alias ${server}.data.metadev.io to DNS"
